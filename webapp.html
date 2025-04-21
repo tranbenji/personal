@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Ensure proper scaling on mobile devices -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Benjamin's Tetris Game</title>
+  <style>
+    /* Reset default margins and prevent scrolling */
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #222;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+    }
+    /* Use flexbox so that everything fits nicely on one screen */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+        text-align: center;
+        color: #fff;
+        transform: scale(0.9);
+        transform-origin: top center;
+        margin-top: 70px; 
+    }
+    h1 {
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+    /* Canvas styling */
+    #gameCanvas {
+      background-color: #000;
+      border: 2px solid #555;
+      display: block;
+      margin: 0 auto;
+    }
+    #scoreDisplay {
+      margin-top: 10px;
+      font-size: 20px;
+    }
+    #instructions {
+      margin-top: 10px;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+    /* Buttons styling */
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      margin: 10px 5px;
+      cursor: pointer;
+    }
+    /* Overlay for Game Over */
+    #gameOverScreen {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    #gameOverScreen h2 {
+      color: #fff;
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+  </style>
+  <script>
+    // Global variables and game setup
+    let canvas, ctx;
+    const rows = 20, cols = 10, cellSize = 30;
+    let grid = [];
+    let score = 0;
+    let gameOver = false;
+    let currentPiece;
+    let gameIntervalId;
+    let paused = false;
+    
+    // Standard Tetris tetrominoes
+    const tetrominoes = {
+      I: { shape: [[1, 1, 1, 1]], color: 'cyan' },
+      J: { shape: [[1, 0, 0], [1, 1, 1]], color: 'blue' },
+      L: { shape: [[0, 0, 1], [1, 1, 1]], color: 'orange' },
+      O: { shape: [[1, 1], [1, 1]], color: 'yellow' },
+      S: { shape: [[0, 1, 1], [1, 1, 0]], color: 'green' },
+      T: { shape: [[0, 1, 0], [1, 1, 1]], color: 'purple' },
+      Z: { shape: [[1, 1, 0], [0, 1, 1]], color: 'red' }
+    };
+    
+    // Create an empty grid array
+    function createGrid() {
+      grid = [];
+      for (let r = 0; r < rows; r++) {
+        grid[r] = [];
+        for (let c = 0; c < cols; c++) {
+          grid[r][c] = ''; // empty cell
+        }
+      }
+    }
+    
+    // Draw grid along with any locked pieces
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c]) {
+            ctx.fillStyle = grid[r][c];
+            ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+          }
+          // Light border for grid cells
+          ctx.strokeStyle = '#333';
+          ctx.strokeRect(c * cellSize, r * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+    
+    // Draw the active piece
+    function drawPiece(piece) {
+      for (let r = 0; r < piece.shape.length; r++) {
+        for (let c = 0; c < piece.shape[r].length; c++) {
+          if (piece.shape[r][c]) {
+            ctx.fillStyle = piece.color;
+            ctx.fillRect((piece.x + c) * cellSize, (piece.y + r) * cellSize, cellSize, cellSize);
+            ctx.strokeStyle = '#333';
+            ctx.strokeRect((piece.x + c) * cellSize, (piece.y + r) * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+    
+    // Rotate the piece clockwise
+    function rotate(piece) {
+      let newShape = [];
+      for (let c = 0; c < piece.shape[0].length; c++) {
+        let newRow = [];
+        for (let r = piece.shape.length - 1; r >= 0; r--) {
+          newRow.push(piece.shape[r][c]);
+        }
+        newShape.push(newRow);
+      }
+      return newShape;
+    }
+    
+    // Check for collision with grid boundaries or already locked cells
+    function collision(x, y, shape) {
+      for (let r = 0; r < shape.length; r++) {
+        for (let c = 0; c < shape[r].length; c++) {
+          if (shape[r][c]) {
+            let newX = x + c;
+            let newY = y + r;
+            if (newX < 0 || newX >= cols || newY >= rows) {
+              return true;
+            }
+            if (newY >= 0 && grid[newY][newX]) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+    
+    // Lock the current piece into the grid and check for full rows
+    function placePiece() {
+        for (let r = 0; r < currentPiece.shape.length; r++) {
+            for (let c = 0; c < currentPiece.shape[r].length; c++) {
+            if (currentPiece.shape[r][c] && currentPiece.y + r >= 0) {
+                grid[currentPiece.y + r][currentPiece.x + c] = currentPiece.color;
+            }
+            }
+        }
+        
+        // Check if any cell in the top row is filled; if so, the game is over.
+        for (let c = 0; c < cols; c++) {
+            if (grid[0][c]) {
+            endGame();
+            return;
+            }
+        }
+        
+        clearRows();
+        spawnPiece();
+    }
+    
+    // Clear full rows and update the score
+    function clearRows() {
+      for (let r = rows - 1; r >= 0; r--) {
+        let isFull = true;
+        for (let c = 0; c < cols; c++) {
+          if (!grid[r][c]) {
+            isFull = false;
+            break;
+          }
+        }
+        if (isFull) {
+          grid.splice(r, 1);
+          grid.unshift(new Array(cols).fill(''));
+          score += 10;
+          updateScoreDisplay();
+        }
+      }
+    }
+    
+    // Spawn a random tetromino as the new active piece
+    function spawnPiece() {
+      const keys = Object.keys(tetrominoes);
+      const randKey = keys[Math.floor(Math.random() * keys.length)];
+      const pieceTemplate = tetrominoes[randKey];
+      currentPiece = {
+        shape: pieceTemplate.shape,
+        color: pieceTemplate.color,
+        x: Math.floor((cols - pieceTemplate.shape[0].length) / 2),
+        y: -pieceTemplate.shape.length // start slightly above visible area
+      };
+      if (collision(currentPiece.x, currentPiece.y, currentPiece.shape)) {
+        endGame();
+      }
+    }
+    
+    // Update the score display
+    function updateScoreDisplay() {
+      document.getElementById("scoreDisplay").innerText = "Score: " + score;
+    }
+    
+    // Main update loop: moves the piece down if possible, or locks it if not
+    function update() {
+      if (!gameOver && !paused) {
+        if (!collision(currentPiece.x, currentPiece.y + 1, currentPiece.shape)) {
+          currentPiece.y++;
+        } else {
+          placePiece();
+        }
+        draw();
+      }
+    }
+    
+    // Redraw the game (grid and active piece)
+    function draw() {
+      drawGrid();
+      drawPiece(currentPiece);
+    }
+    
+    // Handle keyboard input for piece control
+    function keyDownHandler(e) {
+      if (gameOver || paused) return;
+      if (e.key === "ArrowLeft") {
+        if (!collision(currentPiece.x - 1, currentPiece.y, currentPiece.shape)) {
+          currentPiece.x--;
+        }
+      } else if (e.key === "ArrowRight") {
+        if (!collision(currentPiece.x + 1, currentPiece.y, currentPiece.shape)) {
+          currentPiece.x++;
+        }
+      } else if (e.key === "ArrowDown") {
+        // Speed up falling
+        if (!collision(currentPiece.x, currentPiece.y + 1, currentPiece.shape)) {
+          currentPiece.y++;
+        }
+      } else if (e.key === "ArrowUp") {
+        const rotated = rotate(currentPiece);
+        if (!collision(currentPiece.x, currentPiece.y, rotated)) {
+          currentPiece.shape = rotated;
+        }
+      }
+      draw();
+    }
+    
+    // Toggle pause/resume state
+    function togglePause() {
+      if (!paused) {
+        paused = true;
+        clearInterval(gameIntervalId);
+        document.getElementById("pauseBtn").innerText = "Resume";
+      } else {
+        paused = false;
+        gameIntervalId = setInterval(update, 500);
+        document.getElementById("pauseBtn").innerText = "Pause";
+      }
+    }
+    
+    // End the game: stop the interval and show Game Over overlay
+    function endGame() {
+      gameOver = true;
+      clearInterval(gameIntervalId);
+      showGameOverScreen();
+    }
+    
+    // Display the Game Over overlay with final score and restart button
+    function showGameOverScreen() {
+      const overScreen = document.getElementById("gameOverScreen");
+      document.getElementById("gameOverMessage").innerText = "Game Over! Final Score: " + score;
+      overScreen.style.display = "flex";
+    }
+    
+    // Restart the game
+    function restartGame() {
+      gameOver = false;
+      paused = false;
+      score = 0;
+      updateScoreDisplay();
+      createGrid();
+      spawnPiece();
+      draw();
+      document.getElementById("gameOverScreen").style.display = "none";
+      document.getElementById("pauseBtn").innerText = "Pause";
+      gameIntervalId = setInterval(update, 500);
+    }
+    
+    document.addEventListener("keydown", keyDownHandler);
+    
+    // Initialize on page load
+    window.onload = function() {
+      canvas = document.getElementById("gameCanvas");
+      ctx = canvas.getContext("2d");
+      // Set canvas dimensions matching the grid
+      canvas.width = cols * cellSize;
+      canvas.height = rows * cellSize;
+      createGrid();
+      spawnPiece();
+      draw();
+      gameIntervalId = setInterval(update, 500);
+    };
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>Benjamin's Tetris Game</h1>
+    <canvas id="gameCanvas"></canvas>
+    <div id="scoreDisplay">Score: 0</div>
+    <div id="instructions">
+      Use the arrow keys to play:<br>
+      Left/Right: Move, Up: Rotate, Down: Speed up
+    </div>
+    <button id="pauseBtn" onclick="togglePause()">Pause</button>
+  </div>
+  <!-- Game Over overlay with restart button -->
+  <div id="gameOverScreen">
+    <h2 id="gameOverMessage">Game Over!</h2>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+</body>
+</html>

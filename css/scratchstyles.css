@@ -1,0 +1,113 @@
+.header{
+    background-color:bisque;
+    height: 100px;
+    line-height: 100px;
+}
+
+.mainbody{
+    background-color:rgb(186, 207, 194);
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h1{
+    text-align: center;
+}
+
+li {
+    margin-bottom: 0.5rem;     
+}
+
+.footer{
+    position: fixed;
+    background-color: black;
+    color: whitesmoke;
+    bottom:0px;
+    left: 0px;
+    right: 0px;
+    height: 25px;
+    line-height: 25px;
+    text-align: center;
+}
+
+nav{
+    background-color: seashell;
+    padding:10px;
+}
+
+nav a{
+    color:#333;
+    text-decoration:wavy;
+    padding: 15px;
+    font-weight:bold;
+    display: inline-block;
+}
+
+nav a:hover{
+    background-color:#ccc;
+}
+
+img{
+    float: right;
+    width: 200px; 
+    height: auto;
+    margin-left: 20px;
+    margin-bottom: 20px;
+}
+
+ol {
+    width: 60%;
+    font-size: 1.5em; 
+    margin: 20px auto 20px 20%; 
+    padding-left: 40px;
+    margin-bottom: 1rem;      
+  }
+
+.anchor{
+    color:steelblue;
+    padding-left: 20px;
+    font-size: large;
+  }
+
+
+.hymn-title {
+    font-size: 1.75rem;           
+    font-weight: 600;             
+    text-align: center;           
+    margin: 2rem 0 1rem;          
+    color: black;               
+    font-family: "Segoe UI", sans-serif;
+  }
+  
+
+.video-container {
+
+    margin: 0 auto;       
+    position: relative;   
+    padding-bottom: 56.25%;
+    height: 0;
+    overflow: hidden;
+    text-align: center;    
+    margin: 2rem 0;
+  }
+  
+.video-container iframe {
+    position: static !important;   
+    display: block !important;     
+    margin: 2rem auto !important;  
+    width: 560px !important;       
+    height: 315px !important;
+  }
+  
+
+#viz1745261695809 {
+    display: flex !important;
+    justify-content: center !important;
+    margin: 2rem auto !important;
+  }
+  
+
+#viz1745261695809 object {
+    display: block !important;
+    margin: 0 auto !important;
+  }
+  
